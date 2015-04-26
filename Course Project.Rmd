@@ -1,0 +1,60 @@
+---
+title: 'Practical Machine Learning: Course Project'
+author: "Michelle Jaeger"
+date: "April 25, 2015"
+output: html_document
+---
+
+## Introduction
+This project uses the Weight Lifting Exercise Dataset, generously made available here: http://groupware.les.inf.puc-rio.br/har). To obtain this data, six participants performed bicep curls in five different fashions. Class A corresponds to the specified execution of the exercise, while the four other classes correspond to common mistakes. Various accelerometer reading variables are used to predict the classe variable.
+
+### Read in Data
+```{r}
+training <- download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="training.csv", method="curl")
+testing <- download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="testing.csv", method="curl")
+training_data <- read.csv("training.csv")
+testing_data <- read.csv("testing.csv")
+```
+
+### Libraries
+```{r}
+library(caret)
+library(randomForest)
+```
+
+### Data Cleaning
+``` {r}
+# Remove variables with near zero variance
+nzv <- nearZeroVar(training_data)
+training_data <- training_data[,-nzv]
+# Remove variables with NAs
+filtered_training_data <- training_data[, colSums(is.na(training_data)) == 0]
+# Remove irrelevant variables
+filtered_training_data <- filtered_training_data[ , 8:59]
+```
+Columns with near zero variance and/or missing data were removed, and columns for variables that did not seem relevant (names, dates, times, etc.) were removed.
+
+### Cross Validation
+``` {r}
+set.seed(1)
+inTrain <- createDataPartition(y = filtered_training_data$classe, p = .8, list=F)
+train <- filtered_training_data[inTrain,]
+test <- filtered_training_data[-inTrain,]
+cross_validated <- trainControl(method="cv", number=4)
+```
+A seed was set for reproducibility, the training data was divided into training data and testing data (80% training and 20% testing), and a trainControl variable was created to be used in creating the model.
+
+### Build the model using Random Forest
+``` {r}
+modFit <- randomForest(classe ~., data=train, trControl=cross_validated)
+prediction <- predict(modFit, test)
+result <- confusionMatrix(prediction, test$classe)
+result
+```
+The confusion matrix above details the performance of the algorithm. The Accuracy statistic is .995, indicating an **out of sample error** of around .5%.
+
+## Predicting Results on the original Test set
+``` {r}
+predictionResult <- predict(modFit, testing_data)
+predictionResult
+```
